@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBL Universal Connexionz</title>
+    <style>
+        :root {
+            --primary: #0056b3;
+            --secondary: #ffc107;
+            --bg-color: #f4f7f6;
+            --chat-bg: #ffffff;
+            --bot-msg: #e9ecef;
+            --user-msg: #007bff;
+            --text-dark: #333333;
+        }
+
+        body, html {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            color: var(--text-dark);
+        }
+
+        /* --- LAYOUT WRAPPER --- */
+        .page-layout {
+            display: flex;
+            height: 100vh;
+            flex-direction: row;
+        }
+
+        /* --- LEFT SIDE: CAFE STOREFRONT --- */
+        .main-content {
+            flex: 2;
+            padding: 40px 60px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .hero p {
+            font-size: 1.1rem;
+            color: #666;
+            max-width: 600px;
+        }
+
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .service-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            text-align: center;
+            border-top: 4px solid var(--primary);
+            transition: transform 0.2s;
+        }
+
+        .service-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .service-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.2rem;
+        }
+
+        .service-card .price {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 10px 0 0 0;
+        }
+
+        /* --- RIGHT SIDE: CONNECTBOT --- */
+        .chat-sidebar {
+            flex: 1;
+            min-width: 350px;
+            max-width: 400px;
+            background: var(--chat-bg);
+            border-left: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -4px 0 15px rgba(0,0,0,0.05);
+        }
+
+        .chat-header {
+            background-color: var(--primary);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-header h2 { margin: 0; font-size: 1.2rem; }
+
+        .session-badge {
+            font-size: 0.75rem;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 10px;
+            border-radius: 12px;
+            display: inline-block;
+            margin-top: 8px;
+        }
+
+        .chat-box {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background-color: #fafbfc;
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .msg-bot {
+            background-color: var(--bot-msg);
+            color: var(--text-dark);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        .msg-user {
+            background-color: var(--user-msg);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .quick-replies {
+            padding: 10px 20px;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            white-space: nowrap;
+            border-top: 1px solid #eee;
+        }
+
+        .chip {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .input-area {
+            display: flex;
+            padding: 15px 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 24px;
+            outline: none;
+        }
+
+        .input-area button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            margin-left: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .typing-indicator {
+            display: none;
+            align-self: flex-start;
+            background: var(--bot-msg);
+            padding: 12px 16px;
+            border-radius: 18px;
+            border-bottom-left-radius: 4px;
+            font-style: italic;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- MOBILE RESPONSIVENESS --- */
+        @media (max-width: 800px) {
+            .page-layout { flex-direction: column; height: auto; }
+            .chat-sidebar { min-width: 100%; max-width: 100%; height: 600px; border-left: none; border-top: 2px solid var(--primary); }
+            .main-content { padding: 20px; }
+        }
+        .agent-state-panel {
+            background: #ffffff;
+            border-bottom: 2px solid #eee;
+            padding: 15px 20px;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            z-index: 10;
+        }
+
+        .agent-state-panel h4 { 
+            margin: 0 0 12px 0; 
+            color: var(--primary); 
+            text-transform: uppercase; 
+            font-size: 0.75rem; 
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #28a745;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        .state-item { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 6px; 
+            border-bottom: 1px dashed #eee; 
+            padding-bottom: 4px; 
+        }
+
+        .state-item span:first-child { font-weight: 600; color: #555; }
+        .pending { color: #aaa; font-style: italic; }
+        .resolved { color: var(--primary); font-weight: bold; }
+        .action-badge { background: #ffc107; color: #000; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; }
+        .action-success { background: #28a745; color: #fff; }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(40, 167, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+        }
+
+        .reset-btn {
+            background-color: #dc3545; /* A clear, alert red */
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            margin-top: 10px;
+            font-weight: bold;
+            transition: opacity 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .reset-btn:hover { 
+            opacity: 0.8; 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="page-layout">
+        
+        <!-- LEFT COLUMN: STOREFRONT -->
+        <div class="main-content">
+            <div class="hero">
+                <h1>BBL Universal Connexionz</h1>
+                <p>Cape Town's trusted community hub for internet access, printing, and professional administrative services.</p>
+            </div>
+
+           <div class="services-grid">
+                <div class="service-card">
+                    <h3>Online Applications</h3>
+                    <p>PSIRA, Schools, Jobs, NSFAS</p>
+                    <p class="price">R25.00</p>
+                </div>
+                <div class="service-card">
+                    <h3>CV & Writing</h3>
+                    <p>Professional formatting & typing</p>
+                    <p class="price">R30.00</p>
+                </div>
+                <div class="service-card">
+                    <h3>Internet Time</h3>
+                    <p>PC access with tech assistance (1hr)</p>
+                    <p class="price">R15.00</p>
+                </div>
+                <div class="service-card">
+                    <h3>Printing & Copies</h3>
+                    <p>B&W or Color documents</p>
+                    <p class="price">R3.00 / pg</p>
+                </div>
+                <div class="service-card">
+                    <h3>Photo Printing</h3>
+                    <p>High-quality digital photo prints</p>
+                    <p class="price">R15.00</p>
+                </div>
+                <div class="service-card">
+                    <h3>Pro Headshots</h3>
+                    <p>Professional ID/CV images</p>
+                    <p class="price">R40.00</p>
+                </div>
+                <div class="service-card">
+                    <h3>SARS e-filing</h3>
+                    <p>Tax returns & compliance</p>
+                    <p class="price">R40.00</p>
+                </div>
+                <div class="service-card">
+                    <h3>FAX Services</h3>
+                    <p>Local and national sending</p>
+                    <p class="price">R10.00</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: AI AGENT -->
+        <div class="chat-sidebar">
+            <div class="chat-header">
+                <h2>ConnectBot Triage Agent</h2>
+                <div><span class="session-badge" id="session-display">Ticket ID: Loading...</span></div>
+                <!-- NEW: End Session Button -->
+                <button class="reset-btn" onclick="resetSession()">Done? Click for Next Customer</button>
+            </div>
+
+            <!-- NEW: Live Extraction Panel -->
+            <div class="agent-state-panel">
+                <h4><div class="pulse-dot"></div> Live Memory Extraction</h4>
+                <div class="state-item"><span>Service:</span> <span id="state-service" class="pending">Detecting intent...</span></div>
+                <div class="state-item"><span>Customer:</span> <span id="state-name" class="pending">Awaiting input...</span></div>
+                <div class="state-item"><span>Contact:</span> <span id="state-phone" class="pending">Awaiting input...</span></div>
+                <div class="state-item"><span>System:</span> <span id="state-status" class="action-badge">Awaiting Request</span></div>
+            </div>
+
+            <div class="chat-box" id="chat-box">
+                <div class="message msg-bot">Molo! Welcome to BBL. Skip the queue by telling me what you need help with today!</div>
+                <div class="typing-indicator" id="typing">ConnectBot is typing...</div>
+            </div>
+            
+            <div class="quick-replies">
+                <button class="chip" onclick="document.getElementById('user-input').value='How much is PSIRA online application?'; handleManualInput();">PSIRA App</button>
+                <button class="chip" onclick="document.getElementById('user-input').value='I need an hour of internet time'; handleManualInput();">Internet Time</button>
+                <button class="chip" onclick="document.getElementById('user-input').value='I need my CV typed'; handleManualInput();">CV Typing</button>
+            </div>
+            
+            <div class="input-area">
+                <input type="text" id="user-input" placeholder="Type your request here..." onkeypress="handleEnter(event)">
+                <button onclick="handleManualInput()">&#10148;</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
