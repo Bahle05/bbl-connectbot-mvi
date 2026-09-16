@@ -3,8 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const { google } = require('googleapis');
 const nodemailer = require('nodemailer');
-const twilio = require('twilio')
-const path = require('path');;
+const twilio = require('twilio');
+const path = require('path');
 
 const app = express();
 app.use(cors());
@@ -34,13 +34,11 @@ const PRICING_DB = {
     "Internet Time (Per Hour)": 15
 };
 
-// Local Memory Storage
 const activeSessions = {};
 
 app.post('/api/triage', async (req, res) => {
     const { userInput, sessionId } = req.body;
 
-    // Initialize state if new customer
     if (!activeSessions[sessionId]) {
         activeSessions[sessionId] = {
             diagnosed_service: null,
@@ -56,7 +54,7 @@ app.post('/api/triage', async (req, res) => {
     let response_message = "I am not sure I understand. Could you specify if you need Internet Time, CV Typing, or an Online Application?";
 
     try {
-        // STEP 1: Diagnose Service locally via keyword matching
+        // STEP 1: Diagnose Service
         if (!session.diagnosed_service) {
             if (input.includes('internet')) session.diagnosed_service = "Internet Time (Per Hour)";
             else if (input.includes('cv') || input.includes('typing')) session.diagnosed_service = "CV & Professional Writing";
@@ -67,20 +65,15 @@ app.post('/api/triage', async (req, res) => {
                 response_message = `Sure thing! ${session.diagnosed_service} is R${PRICING_DB[session.diagnosed_service]}. To secure your ticket in the queue, could you please tell me your Name and WhatsApp number?`;
             }
         } 
-        // STEP 2: Extract Contact Info locally
+        // STEP 2: Extract Contact Info (Upgraded Extraction)
         else if (!session.is_complete) {
-            // Regex to find a standard SA number (e.g., +27712345678)
             const phoneMatch = userInput.match(/(\+27\d{9})/);
             if (phoneMatch) session.whatsapp_number = phoneMatch[0];
 
-            // Simple logic to grab the name
-            if (input.includes("i'm ") || input.includes("i am ")) {
-                const words = userInput.split(' ');
-                const nameIndex = words.findIndex(w => w.toLowerCase().includes("i'm") || w.toLowerCase().includes("am")) + 1;
-                if (words[nameIndex]) session.customer_name = words[nameIndex].replace(/[^a-zA-Z]/g, '');
-            } else if (!session.customer_name && userInput.length > 2 && !phoneMatch) {
-                // Fallback: grabs the first word they type as their name
-                session.customer_name = userInput.split(' ')[0].replace(/[^a-zA-Z]/g, '');
+            // Strips out the phone number and grabs the remaining word as the name
+            const textWithoutPhone = userInput.replace(/(\+27\d{9})/, '').replace(/[^a-zA-Z\s]/g, '').trim();
+            if (textWithoutPhone.length > 1 && !session.customer_name) {
+                session.customer_name = textWithoutPhone.split(' ')[0];
             }
 
             if (session.customer_name && session.whatsapp_number) {
@@ -88,12 +81,13 @@ app.post('/api/triage', async (req, res) => {
                 response_message = `Thank you, ${session.customer_name}! Your ticket is queued. Buntu or a staff member will be in touch shortly.`;
             } else if (session.whatsapp_number && !session.customer_name) {
                 response_message = "Got the number! Could you also provide your name?";
+            } else if (session.customer_name && !session.whatsapp_number) {
+                response_message = `Got it, ${session.customer_name}. Please provide your WhatsApp number starting with +27.`;
             } else {
                 response_message = "Please ensure your WhatsApp number is formatted with +27 so we can secure the ticket.";
             }
         }
 
-        // Build the final JSON matching our original AI structure
         const agentData = {
             response_message: response_message,
             diagnosed_service: session.diagnosed_service,
@@ -102,43 +96,55 @@ app.post('/api/triage', async (req, res) => {
             is_complete: session.is_complete
         };
 
-        // STEP 3: Execution Logic (Only runs once)
+        // STEP 3: Bulletproof Execution Logic
         if (agentData.is_complete && !session.executed) {
             agentData.verified_price = PRICING_DB[agentData.diagnosed_service];
             session.executed = true; 
             
-            // Log to Google Sheets
-            await sheets.spreadsheets.values.append({
-                spreadsheetId: process.env.SPREADSHEET_ID,
-                range: 'SessionID!A:F',
-                valueInputOption: 'USER_ENTERED',
-                requestBody: { values: [[sessionId, new Date().toISOString(), agentData.customer_name, agentData.whatsapp_number, agentData.diagnosed_service, agentData.verified_price]] }
-            });
+            // 1. Safe Google Sheets Logging (Changed range to default 'Sheet1!A:F')
+            try {
+                await sheets.spreadsheets.values.append({
+                    spreadsheetId: process.env.SPREADSHEET_ID,
+                    range: 'Sheet1!A:F', 
+                    valueInputOption: 'USER_ENTERED',
+                    requestBody: { values: [[sessionId, new Date().toISOString(), agentData.customer_name, agentData.whatsapp_number, agentData.diagnosed_service, agentData.verified_price]] }
+                });
+            } catch (sheetErr) {
+                console.error("Sheets Error:", sheetErr.message);
+            }
 
-            // Send Admin Email
-            transporter.sendMail({
-                from: process.env.EMAIL_USER,
-                to: 'universalconnexionz@gmail.com',
-                subject: `New ConnectBot Ticket: ${agentData.diagnosed_service}`,
-                text: `New Ticket ID: ${sessionId}\nCustomer: ${agentData.customer_name}\nWhatsApp: ${agentData.whatsapp_number}\nService: ${agentData.diagnosed_service}\nQuoted Price: R${agentData.verified_price}`
-            }, (err) => { if(err) console.error("Email Error:", err); else console.log("Admin Alert Sent"); });
+            // 2. Safe Email Alert
+            try {
+                transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: 'universalconnexionz@gmail.com',
+                    subject: `New ConnectBot Ticket: ${agentData.diagnosed_service}`,
+                    text: `New Ticket ID: ${sessionId}\nCustomer: ${agentData.customer_name}\nWhatsApp: ${agentData.whatsapp_number}\nService: ${agentData.diagnosed_service}\nQuoted Price: R${agentData.verified_price}`
+                });
+            } catch (emailErr) {
+                console.error("Email Error:", emailErr.message);
+            }
 
-            // Send WhatsApp SLA
-            const whatsappMsg = `Molo ${agentData.customer_name}! BBL Universal Connexionz has received your request for ${agentData.diagnosed_service}. An employee will be in touch within 30 minutes.`;
-            await twilioClient.messages.create({
-                body: whatsappMsg,
-                from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,
-                to: `whatsapp:${agentData.whatsapp_number}`
-            }).then(() => console.log("WhatsApp SLA Sent")).catch(err => console.error("Twilio Error:", err));
+            // 3. Safe WhatsApp SLA
+            try {
+                const whatsappMsg = `Molo ${agentData.customer_name}! BBL Universal Connexionz has received your request for ${agentData.diagnosed_service}. An employee will be in touch within 30 minutes.`;
+                await twilioClient.messages.create({
+                    body: whatsappMsg,
+                    from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,
+                    to: `whatsapp:${agentData.whatsapp_number}`
+                });
+            } catch (twilioErr) {
+                console.error("Twilio Error:", twilioErr.message);
+            }
         }
         
         res.json(agentData);
 
     } catch (error) {
-        console.error("Backend Error:", error);
+        console.error("Backend Fatal Error:", error);
         res.status(500).json({ error: "System offline. Please see staff." });
     }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`BBL ConnectBot running on port ${PORT}`));
+app.listen(PORT, () => console.log(`BBL ConnectBot MVI running on port ${PORT}`));
